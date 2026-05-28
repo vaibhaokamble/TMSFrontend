@@ -5,7 +5,7 @@ import { useTask } from '../contexts/TaskContext';
 import { useTeam } from '../contexts/TeamContext';
 import { useUser } from '../contexts/UserContext';
 import { useUserTeams } from '../hooks/useUserTeams';
-import { getTasks } from "../services/taskService";
+import { getTasks, normalizeTaskListResponse } from "../services/taskService";
 import TaskForm from './TaskForm';
 import TaskModal from './TaskModal';
 
@@ -21,6 +21,7 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
   const { assignTask } = useTask();
   const { currentUser } = useUser();
   const availableTeams = useUserTeams();
+  const currentUserEmployeeId = currentUser?.employeeId || currentUser?.id;
   const [tasks, setTasks] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -30,6 +31,13 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
   useEffect(() => {
 
     fetchTasks();
+
+    const handleTasksUpdated = () => {
+      fetchTasks();
+    };
+
+    window.addEventListener('tasks-updated', handleTasksUpdated);
+    return () => window.removeEventListener('tasks-updated', handleTasksUpdated);
 
   }, []);
 
@@ -41,8 +49,7 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
 
       console.log(response.data);
 
-      // Change this according to backend response
-      setTasks(response.data.data || response.data);
+      setTasks(normalizeTaskListResponse(response.data));
 
     } catch (error) {
 
@@ -60,6 +67,11 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
     teams.find(team => team.id === currentSelectedTeamId) ||
     getSelectedTeam();
 
+  const boardTitle =
+    view === 'assigned-tasks'
+      ? 'All Tasks'
+      : currentSelectedTeam?.name || 'Task Board';
+
   useEffect(() => {
 
     if (currentSelectedTeamId && currentSelectedTeamId !== contextSelectedTeamId) {
@@ -75,36 +87,7 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
   ]);
 
   // Filter Tasks
-  const teamTasks =
-    view === 'my-tasks' || view === 'assigned-tasks'
-
-      ? tasks.filter((t) => {
-
-          if (currentUser?.role === 'employee') {
-
-            return (
-              t.teamId === currentSelectedTeamId &&
-              (
-                t.assignedTo === currentUser?.name ||
-                t.createdBy === currentUser?.id
-              )
-            );
-          }
-
-          if (
-            currentUser?.role === 'team-lead' &&
-            view === 'my-tasks'
-          ) {
-
-            return t.teamId === currentSelectedTeamId;
-          }
-
-          return t.assignedTo === currentUser?.name;
-        })
-
-      : tasks.filter(
-          (t) => t.teamId === currentSelectedTeamId
-        );
+  const teamTasks = tasks;
 
   // Search Filter
   const filteredTeamTasks = teamTasks.filter((task) => {
@@ -128,23 +111,23 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
     );
   });
 
-  const statuses = ['new', 'assigned', 'done'];
+  const statuses = ['NEW', 'ASSIGN', 'DONE'];
 
   const statusLabels = {
 
-    new: {
+    NEW: {
       label: 'New',
       icon: '🔵',
       color: 'blue'
     },
 
-    assigned: {
+    ASSIGN: {
       label: 'Assign',
       icon: '🟡',
       color: 'yellow'
     },
 
-    done: {
+    DONE: {
       label: 'Done',
       icon: '🟢',
       color: 'green'
@@ -161,7 +144,7 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
         <div className="min-w-0">
 
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white truncate">
-            🎯 {currentSelectedTeam?.name || 'Task Board'}
+            🎯 {boardTitle}
           </h1>
 
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -196,13 +179,13 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
       {/* Task Board Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
 
-        {statuses.map((status) => {
+          {statuses.map((status) => {
 
-          const statusConfig = statusLabels[status];
+            const statusConfig = statusLabels[status] || statusLabels.NEW;
 
           const statusTasks =
             filteredTeamTasks.filter(
-              (t) => t.status === status
+              (t) => String(t.status || '').toUpperCase() === status
             );
 
           return (
@@ -284,11 +267,11 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
                           📅 {task.dueDate}
                         </span>
 
-                        {task.assignedTo && (
+                        {(task.assignedTo || task.assignedToId) && (
 
                           <span className="text-gray-700 dark:text-gray-300 font-medium truncate">
 
-                            👤 {task.assignedTo}
+                            👤 {task.assignedTo || task.assignedToId}
 
                           </span>
 
@@ -297,11 +280,14 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
                       </div>
 
                       {/* Self Assign */}
-                      {status === 'new' &&
+                      {status === 'NEW' &&
                         !task.assignedTo &&
+                        !task.assignedToId &&
                         (
                           currentUser?.role !== 'employee' ||
-                          task.createdBy === currentUser?.id
+                          task.createdBy === currentUser?.id ||
+                          task.createdBy === currentUserEmployeeId ||
+                          task.createdById === currentUserEmployeeId
                         ) && (
 
                         <button
@@ -312,7 +298,7 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
                             assignTask(
                               task.id,
                               currentUser?.name,
-                              currentUser?.id
+                              currentUserEmployeeId
                             );
 
                           }}

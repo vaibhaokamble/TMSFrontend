@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-import { X, Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import StatusBadge from "../components/StatusBadge";
 import ConfirmModal from "../components/ConfirmModal";
 
 import { useTask } from "../contexts/TaskContext";
@@ -31,7 +30,7 @@ const TaskModal = ({ task, onClose, isOpen }) => {
     useState("");
 
   const [editedTask, setEditedTask] = useState({
-    status: "new",
+    status: "NEW",
     assignedUserId: "",
   });
 
@@ -43,13 +42,18 @@ const TaskModal = ({ task, onClose, isOpen }) => {
 
   const teamMembers = team?.memberDetails || [];
 
+  const currentUserEmployeeId =
+    currentUser?.employeeId || currentUser?.id || "";
+
   const isTaskCreator =
-    liveTask?.createdBy === currentUser?.id;
+    liveTask?.createdBy === currentUserEmployeeId ||
+    liveTask?.createdById === currentUserEmployeeId;
 
   const isTeamLead =
     currentUser?.role === "team-lead";
 
   const isAssignee =
+    liveTask?.assignedToId === currentUserEmployeeId ||
     liveTask?.assignedTo === currentUser?.name;
 
   const canEdit =
@@ -72,12 +76,12 @@ const TaskModal = ({ task, onClose, isOpen }) => {
     prevTaskRef.current = liveTask.id;
 
     const member = teamMembers.find(
-      (m) => m.name === liveTask.assignedTo
+      (m) => m.employeeId === liveTask.assignedToId || m.id === liveTask.assignedToId || m.name === liveTask.assignedTo
     );
 
     setEditedTask({
-      status: liveTask?.status || "new",
-      assignedUserId: member?.id || "",
+      status: String(liveTask?.status || "NEW").toUpperCase(),
+      assignedUserId: member?.employeeId || member?.id || "",
     });
 
   }, [liveTask, teamMembers]);
@@ -148,6 +152,7 @@ const TaskModal = ({ task, onClose, isOpen }) => {
     const selectedMember =
       teamMembers.find(
         (m) =>
+          m.employeeId === editedTask.assignedUserId ||
           m.id === editedTask.assignedUserId
       );
 
@@ -156,14 +161,20 @@ const TaskModal = ({ task, onClose, isOpen }) => {
       await updateTaskApi(
         liveTask.id,
         {
-          status: editedTask.status,
+          title: liveTask.title,
+          description: liveTask.description,
+          teamId: liveTask.teamId,
+          dueDate: liveTask.dueDate,
+          status: String(editedTask.status || "NEW").toUpperCase(),
 
-          assignedTo:
-            editedTask.status === "new"
+          assignedToId:
+            editedTask.status === "NEW"
               ? null
-              : selectedMember?.name || null,
+              : selectedMember?.employeeId || selectedMember?.id || null,
         }
       );
+
+      window.dispatchEvent(new Event('tasks-updated'));
 
       alert("Task Updated");
 
@@ -240,19 +251,16 @@ const TaskModal = ({ task, onClose, isOpen }) => {
               onChange={(e) =>
                 setEditedTask({
                   ...editedTask,
-                  status: e.target.value,
+                  status: String(e.target.value || 'NEW').toUpperCase(),
                 })
               }
               disabled={!canChangeStatus}
               className="w-full border px-3 py-2 rounded-lg"
             >
-              <option value="new">New</option>
-              <option value="assigned">
-                Assigned
-              </option>
-              <option value="done">Done</option>
+              <option value="NEW">New</option>
+              <option value="ASSIGN">Assigned</option>
+              <option value="DONE">Done</option>
             </select>
-
           </div>
 
           {/* Assign */}
@@ -282,8 +290,8 @@ const TaskModal = ({ task, onClose, isOpen }) => {
                 {teamMembers.map((member) => (
 
                   <option
-                    key={member.id}
-                    value={member.id}
+                    key={member.employeeId || member.id}
+                    value={member.employeeId || member.id}
                   >
                     {member.name}
                   </option>

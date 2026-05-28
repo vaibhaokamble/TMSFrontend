@@ -1,22 +1,26 @@
-import React, { useEffect, useState } from 'react';
 import { MoreVertical } from 'lucide-react';
-import { useUser } from '../contexts/UserContext';
-import { useUserTeams } from '../hooks/useUserTeams';
-import { getTasks } from '../services/taskService';
+import { useEffect, useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import UserAvatar from '../components/UserAvatar';
+import { useUser } from '../contexts/UserContext';
+import { getTasks, normalizeTaskListResponse } from '../services/taskService';
 
 const Dashboard = ({ searchQuery = '' }) => {
 
   const { currentUser } = useUser();
-
-  const myTeams = useUserTeams();
 
   const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
 
     fetchTasks();
+
+    const handleTasksUpdated = () => {
+      fetchTasks();
+    };
+
+    window.addEventListener('tasks-updated', handleTasksUpdated);
+    return () => window.removeEventListener('tasks-updated', handleTasksUpdated);
 
   }, []);
 
@@ -28,7 +32,7 @@ const Dashboard = ({ searchQuery = '' }) => {
 
       console.log(response.data);
 
-      setTasks(response.data);
+      setTasks(normalizeTaskListResponse(response.data));
 
     } catch (error) {
 
@@ -37,26 +41,7 @@ const Dashboard = ({ searchQuery = '' }) => {
     }
   };
 
-  const myTeamIds = myTeams.map((team) => team.id);
-
-  // Show tasks related to current user
-  const teamTasks = tasks.filter((task) => {
-
-    const isInMyTeams = myTeamIds.includes(task.teamId);
-
-    const isCreator = task.createdBy === currentUser?.id;
-
-    const isAssignee = task.assignedTo === currentUser?.name;
-
-    const isTeamMatch = task.teamId === currentUser?.team;
-
-    return (
-      isInMyTeams ||
-      isCreator ||
-      isAssignee ||
-      isTeamMatch
-    );
-  });
+  const teamTasks = tasks;
 
   const query = searchQuery.trim().toLowerCase();
 
@@ -79,15 +64,15 @@ const Dashboard = ({ searchQuery = '' }) => {
     total: filteredTeamTasks.length,
 
     pending: filteredTeamTasks.filter(
-      (t) => t.status === 'new'
+      (t) => String(t.status || '').toUpperCase() === 'NEW'
     ).length,
 
     assigned: filteredTeamTasks.filter(
-      (t) => t.status === 'assigned'
+      (t) => String(t.status || '').toUpperCase() === 'ASSIGN'
     ).length,
 
     done: filteredTeamTasks.filter(
-      (t) => t.status === 'done'
+      (t) => String(t.status || '').toUpperCase() === 'DONE'
     ).length,
   };
 
@@ -230,7 +215,7 @@ const Dashboard = ({ searchQuery = '' }) => {
 
                       </span>
 
-                      {task.assignedTo && (
+                      {(task.assignedTo || task.assignedToId) && (
 
                         <div className="flex items-center gap-1">
 
@@ -244,7 +229,7 @@ const Dashboard = ({ searchQuery = '' }) => {
                             user={{
                               name: task.assignedTo,
                               avatar:
-                                `https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignedTo}`,
+                                `https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignedTo || task.assignedToId}`,
                             }}
                             size="xs"
                           />

@@ -17,7 +17,7 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
 
     description: '',
 
-    status: 'new',
+    status: 'NEW',
 
     dueDate: '',
 
@@ -62,6 +62,9 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
     selectedTeam?.memberDetails ||
     fallbackTeam?.memberDetails ||
     [];
+
+  const currentUserEmployeeId =
+    currentUser?.employeeId || currentUser?.id || '';
 
   const handleSubmit = async (e) => {
 
@@ -122,33 +125,35 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
     }
 
     // Assign Member Name
-    let assignedToName = null;
+    let assignedToId = null;
 
     if (formData.assignedTo) {
 
       if (
-        formData.assignedTo === currentUser?.id
+        formData.assignedTo === currentUserEmployeeId
       ) {
 
-        assignedToName = currentUser?.name;
+        assignedToId = currentUserEmployeeId;
 
       } else {
 
         const selectedMember =
           teamMembers.find(
-            (m) => m.id === formData.assignedTo
+            (m) =>
+              m.employeeId === formData.assignedTo ||
+              m.id === formData.assignedTo
           );
 
-        assignedToName =
-          selectedMember?.name || null;
+        assignedToId =
+          selectedMember?.employeeId || selectedMember?.id || null;
       }
     }
 
     const finalStatus =
-      assignedToName &&
-      formData.status === 'new'
-        ? 'assigned'
-        : formData.status;
+      assignedToId &&
+      String(formData.status).toUpperCase() === 'NEW'
+        ? 'ASSIGN'
+        : String(formData.status || 'NEW').toUpperCase();
 
     // API CALL
     try {
@@ -166,13 +171,13 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
 
           teamId: teamIdToUse,
 
-          createdBy: currentUser?.id,
-
-          assignedTo: assignedToName,
+          assignedToId,
 
         });
 
       console.log(response.data);
+
+      window.dispatchEvent(new Event('tasks-updated'));
 
       alert("Task Created Successfully");
 
@@ -182,7 +187,7 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
 
         description: '',
 
-        status: 'new',
+        status: 'NEW',
 
         dueDate: '',
 
@@ -310,15 +315,15 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
                 className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg bg-white dark:bg-dark-700 text-gray-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
               >
 
-                <option value="new">
+                <option value="NEW">
                   New
                 </option>
 
-                <option value="assigned">
+                <option value="ASSIGN">
                   Assign
                 </option>
 
-                <option value="done">
+                <option value="DONE">
                   Done
                 </option>
 
@@ -370,15 +375,15 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
                   — Unassigned —
                 </option>
 
-                <option value={currentUser?.id}>
+                <option value={currentUserEmployeeId}>
                   🙋 Assign to Me ({currentUser?.name})
                 </option>
 
                 {teamMembers.map((member) => (
 
                   <option
-                    key={member.id}
-                    value={member.id}
+                    key={member.employeeId || member.id}
+                    value={member.employeeId || member.id}
                   >
 
                     {member.name} ({member.role})

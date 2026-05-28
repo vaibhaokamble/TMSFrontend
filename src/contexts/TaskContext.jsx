@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 const TaskContext = createContext();
 const TASKS_STORAGE_KEY = 'vm_task_tasks';
@@ -12,10 +12,11 @@ export const TaskProvider = ({ children }) => {
       try {
         const parsedTasks = JSON.parse(savedTasks);
         return parsedTasks.map((task) => {
-          if (task.status === 'in-progress') {
-            return { ...task, status: 'assigned' };
+          const normalizedStatus = String(task.status || 'NEW').toUpperCase();
+          if (normalizedStatus === 'IN-PROGRESS') {
+            return { ...task, status: 'ASSIGN' };
           }
-          return task;
+          return { ...task, status: normalizedStatus };
         });
       } catch (err) {
         console.error('Error loading tasks from localStorage:', err);
@@ -41,7 +42,7 @@ export const TaskProvider = ({ children }) => {
           id: 'task-demo-1',
           title: 'Set up sprint board',
           description: 'Create baseline workflow and columns for the team.',
-          status: 'new',
+          status: 'NEW',
           dueDate: today,
           teamId: seedTeamId,
           createdBy: currentUser.id,
@@ -62,7 +63,7 @@ export const TaskProvider = ({ children }) => {
           id: 'task-demo-2',
           title: 'Prepare release notes',
           description: 'Summarize completed work and testing status.',
-          status: 'assigned',
+          status: 'ASSIGN',
           dueDate: today,
           teamId: seedTeamId,
           createdBy: currentUser.id,
@@ -83,7 +84,7 @@ export const TaskProvider = ({ children }) => {
           id: 'task-demo-3',
           title: 'Finalize onboarding checklist',
           description: 'Complete the checklist for new joiners.',
-          status: 'done',
+          status: 'DONE',
           dueDate: today,
           teamId: seedTeamId,
           createdBy: currentUser.id,
@@ -101,7 +102,7 @@ export const TaskProvider = ({ children }) => {
           ],
         },
       ];
-      
+
       return demoTasks;
     } catch (err) {
       console.error('Error preparing demo tasks:', err);
@@ -165,7 +166,7 @@ export const TaskProvider = ({ children }) => {
   const assignTask = (taskId, userId, assignerUserId) => {
     updateTask(taskId, {
       assignedTo: userId,
-      status: 'assigned',
+      status: 'ASSIGN',
       statusChanged: true,
       updatedBy: assignerUserId,
       message: 'Assigned to team member',
@@ -176,7 +177,7 @@ export const TaskProvider = ({ children }) => {
     updateTask(taskId, {
       status: newStatus,
       // Clear assignedTo when moving back to 'new' status
-      assignedTo: newStatus === 'new' ? null : undefined,
+      assignedTo: String(newStatus || '').toUpperCase() === 'NEW' ? null : undefined,
       statusChanged: true,
       updatedBy: userId,
     });
