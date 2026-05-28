@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import UserAvatar from '../components/UserAvatar';
 import { useUser } from '../contexts/UserContext';
+import { getOverview } from '../services/analyticsService';
 import { getTasks, normalizeTaskListResponse } from '../services/taskService';
 
 const Dashboard = ({ searchQuery = '' }) => {
@@ -10,19 +11,44 @@ const Dashboard = ({ searchQuery = '' }) => {
   const { currentUser } = useUser();
 
   const [tasks, setTasks] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    assigned: 0,
+    done: 0,
+  });
 
   useEffect(() => {
 
     fetchTasks();
+    fetchStats();
 
     const handleTasksUpdated = () => {
       fetchTasks();
+      fetchStats();
     };
 
     window.addEventListener('tasks-updated', handleTasksUpdated);
     return () => window.removeEventListener('tasks-updated', handleTasksUpdated);
 
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await getOverview();
+      const data = response.data.data;
+      if (data) {
+        setStats({
+          total: data.totalTasks || 0,
+          pending: data.newTasks || 0,
+          assigned: data.assignedTasks || 0,
+          done: data.completedTasks || 0,
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const fetchTasks = async () => {
 
@@ -58,23 +84,7 @@ const Dashboard = ({ searchQuery = '' }) => {
     );
   });
 
-  // Stats
-  const stats = {
 
-    total: filteredTeamTasks.length,
-
-    pending: filteredTeamTasks.filter(
-      (t) => String(t.status || '').toUpperCase() === 'NEW'
-    ).length,
-
-    assigned: filteredTeamTasks.filter(
-      (t) => String(t.status || '').toUpperCase() === 'ASSIGN'
-    ).length,
-
-    done: filteredTeamTasks.filter(
-      (t) => String(t.status || '').toUpperCase() === 'DONE'
-    ).length,
-  };
 
   // Recent Tasks
   const recentTasks = [...filteredTeamTasks]

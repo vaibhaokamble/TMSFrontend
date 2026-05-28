@@ -21,7 +21,7 @@ const Analytics = () => {
 
       console.log(response.data);
 
-      setAnalyticsData(response.data);
+      setAnalyticsData(response.data.data);
 
     } catch (error) {
 

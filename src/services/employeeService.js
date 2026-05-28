@@ -7,8 +7,10 @@ import api from './api';
 
 const API_PATH = '/employees';
 
-export const getAllEmployees = async () => {
-  return await api.get(API_PATH);
+export const getAllEmployees = async (page = 0, size = 1000, sortBy = 'id') => {
+  return await api.get(API_PATH, {
+    params: { page, size, sortBy }
+  });
 };
 
 export const getEmployeeById = async (id) => {
