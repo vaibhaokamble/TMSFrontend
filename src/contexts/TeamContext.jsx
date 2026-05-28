@@ -1,93 +1,89 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { getAllEmployees } from '../services/employeeService';
+import { buildTeamsFromEmployees, extractEmployeesFromResponse, findTeamForUser } from '../utils/teamHelpers';
+import { useUser } from './UserContext';
 
 const TeamContext = createContext();
 
 const TEAMS_STORAGE_KEY = 'vm_task_teams';
-const CURRENT_USER_KEY = 'vm_task_current_user';
-const REGISTERED_USERS_KEY = 'vm_task_registered_users';
 
-const domainLabels = {
-  java: 'Java Development Team',
-  python: 'Python Development Team',
-  devops: 'DevOps Engineering Team',
-  hr: 'Human Resources Team',
-  tester: 'QA Testing Team',
-  frontend: 'Frontend Development Team',
-  designer: 'UI/UX Design Team',
-  manager: 'Project Management Team',
-};
-
-const getDerivedTeams = () => {
+const getStoredTeams = () => {
   try {
-    const usersRaw = localStorage.getItem(REGISTERED_USERS_KEY);
-    const users = usersRaw ? JSON.parse(usersRaw) : [];
-    
-    // Group users by their 'team' (domain)
-    const domains = [...new Set(users.map((u) => u.team).filter(Boolean))];
-
-    return domains.map((domainId) => {
-      const domainUsers = users.filter((u) => u.team === domainId);
-      const teamLead = domainUsers.find((u) => u.role === 'team-lead');
-      
-      return {
-        id: domainId,
-        name: domainLabels[domainId] || `${domainId.toUpperCase()} Team`,
-        description: `All ${domainId} professionals in the organization.`,
-        teamLeadId: teamLead?.id || 'admin',
-        members: domainUsers.map((u) => u.id),
-        memberDetails: domainUsers.map((u) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role === 'team-lead' ? 'Team Lead' : 'Employee',
-          employeeId: u.employeeId,
-          designation: domainLabels[domainId] || domainId,
-        })),
-        createdAt: '2024-01-01',
-        status: 'active',
-      };
-    });
+    const storedTeams = localStorage.getItem(TEAMS_STORAGE_KEY);
+    return storedTeams ? JSON.parse(storedTeams) : [];
   } catch (err) {
-    console.error('Error deriving teams:', err);
+    console.error('Error loading teams from localStorage:', err);
     return [];
   }
 };
 
 export const TeamProvider = ({ children }) => {
-  const [teams, setTeams] = useState(() => getDerivedTeams());
-  const [selectedTeamId, setSelectedTeamId] = useState(() => {
-    try {
-      const currentUserRaw = localStorage.getItem(CURRENT_USER_KEY);
-      const currentUser = currentUserRaw ? JSON.parse(currentUserRaw) : null;
-      return currentUser?.team || (teams[0]?.id || null);
-    } catch (err) {
-      return null;
-    }
-  });
+  const { currentUser } = useUser();
+  const [teams, setTeams] = useState(() => getStoredTeams());
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Sync teams when users change
   useEffect(() => {
-    const syncTeams = () => {
-      const newTeams = getDerivedTeams();
-      setTeams(newTeams);
-      
-      // Update selected team if not set
-      if (!selectedTeamId && newTeams.length > 0) {
-        const currentUserRaw = localStorage.getItem(CURRENT_USER_KEY);
-        if (currentUserRaw) {
-          const currentUser = JSON.parse(currentUserRaw);
-          setSelectedTeamId(currentUser?.team || newTeams[0].id);
-        } else {
-          setSelectedTeamId(newTeams[0].id);
+    if (!currentUser) {
+      setTeams([]);
+      setSelectedTeamId(null);
+      setError('');
+      setIsLoading(false);
+      return;
+    }
+
+    let isActive = true;
+
+    const syncTeams = async () => {
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const response = await getAllEmployees();
+        const employees = extractEmployeesFromResponse(response.data);
+        const derivedTeams = buildTeamsFromEmployees(employees);
+
+        if (!isActive) return;
+
+        const nextTeams = derivedTeams.length > 0 ? derivedTeams : getStoredTeams();
+        setTeams(nextTeams);
+        localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(nextTeams));
+
+        const resolvedTeam = findTeamForUser(nextTeams, currentUser);
+        setSelectedTeamId(resolvedTeam?.id || nextTeams[0]?.id || null);
+      } catch (err) {
+        if (!isActive) return;
+
+        console.error('Error loading teams from backend:', err);
+        setError('Unable to load teams from backend.');
+
+        const fallbackTeams = getStoredTeams();
+        setTeams(fallbackTeams);
+        setSelectedTeamId(findTeamForUser(fallbackTeams, currentUser)?.id || fallbackTeams[0]?.id || null);
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
         }
       }
     };
 
-    window.addEventListener('user-registered', syncTeams);
-    return () => window.removeEventListener('user-registered', syncTeams);
-  }, [selectedTeamId]);
+    syncTeams();
 
-  // Save teams to localStorage for compatibility
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser?.employeeId, currentUser?.email, currentUser?.role]);
+
+  useEffect(() => {
+    if (!currentUser || teams.length === 0) return;
+
+    const resolvedTeam = findTeamForUser(teams, currentUser);
+    if (resolvedTeam?.id && resolvedTeam.id !== selectedTeamId) {
+      setSelectedTeamId(resolvedTeam.id);
+    }
+  }, [teams, currentUser, selectedTeamId]);
+
   useEffect(() => {
     if (teams.length > 0) {
       localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(teams));
@@ -123,9 +119,14 @@ export const TeamProvider = ({ children }) => {
     return getTeamById(selectedTeamId);
   };
 
+  const myTeam = useMemo(() => findTeamForUser(teams, currentUser), [teams, currentUser]);
+
   return (
     <TeamContext.Provider value={{
       teams,
+      myTeam,
+      isLoading,
+      error,
       selectedTeamId,
       setSelectedTeamId,
       createTeam,

@@ -1,9 +1,9 @@
-import { createTask as createTaskApi } from "../services/taskService";
-import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { useUser } from '../contexts/UserContext';
+import { useState } from 'react';
 import { useTeam } from '../contexts/TeamContext';
+import { useUser } from '../contexts/UserContext';
 import { useUserTeams } from '../hooks/useUserTeams';
+import { createTask as createTaskApi } from "../services/taskService";
 import { validateTaskTitle } from '../utils/validation';
 
 const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
@@ -28,8 +28,7 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
   // Team Selection
   const effectiveTeamId =
     propTeamId ||
-    contextSelectedTeamId ||
-    currentUser?.team;
+    contextSelectedTeamId;
 
   const selectedTeam =
     availableTeams.find(
@@ -249,7 +248,6 @@ const TaskForm = ({ onClose, isOpen, teamId: propTeamId }) => {
 
               {selectedTeam?.name ||
                 fallbackTeam?.name ||
-                currentUser?.team ||
                 'Assigned team'}
 
             </div>

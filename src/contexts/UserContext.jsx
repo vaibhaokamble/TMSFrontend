@@ -1,14 +1,14 @@
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const UserContext = createContext();
 
 /**
  * ⚠️ SECURITY WARNING ⚠️
- * 
+ *
  * CRITICAL: Passwords are currently stored in PLAIN TEXT in localStorage.
- * 
+ *
  * THIS IS A MAJOR SECURITY VULNERABILITY!
- * 
+ *
  * For production use:
  * 1. NEVER store passwords client-side
  * 2. Use backend authentication (server-side sessions)
@@ -16,7 +16,7 @@ const UserContext = createContext();
  * 4. Use HTTPS for all communications
  * 5. Implement password reset via email tokens
  * 6. Use secure session cookies (HttpOnly, Secure flags)
- * 
+ *
  * This is demo/prototype code only.
  */
 
@@ -31,7 +31,13 @@ const formatUserName = (email) => {
     .join(' ') || 'User';
 };
 
-const createUserFromCredentials = (email, role, customName = null, team = null, employeeId = null) => ({
+const createUserFromCredentials = (
+  email,
+  role,
+  customName = null,
+  team = null,
+  employeeId = null
+) => ({
   id: `user-${Date.now()}`,
   name: customName || formatUserName(email),
   email,
@@ -40,6 +46,17 @@ const createUserFromCredentials = (email, role, customName = null, team = null, 
   team: team || null,
   teams: [],
 });
+
+// Normalize backend role values into the app's expected format
+const normalizeRole = (rawRole) => {
+  if (!rawRole) return 'employee';
+  const r = String(rawRole).toLowerCase();
+  if (r === 'employee' || r === 'emp' || r === 'user') return 'employee';
+  if (r === 'team_lead' || r === 'team-lead' || r === 'teamlead') return 'team-lead';
+  if (r === 'admin' || r === 'administrator') return 'admin';
+  // fallback: convert snake/upper to kebab/lower
+  return r.replace(/_/g, '-');
+};
 
 // LocalStorage Keys
 const REGISTERED_USERS_KEY = 'vm_task_registered_users';
@@ -176,9 +193,29 @@ export const UserProvider = ({ children }) => {
   };
 
   const updateUser = (userData) => {
-    const updatedUser = { ...currentUser, ...userData };
-    setCurrentUser(updatedUser);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+    const base = currentUser || {};
+    const merged = { ...base, ...userData };
+    if (merged.role) merged.role = normalizeRole(merged.role);
+    setCurrentUser(merged);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(merged));
+  };
+
+  // Set authenticated user from API response or explicit data
+  const setAuthenticatedUser = (userDto = {}, tokens = {}) => {
+    // userDto may have different shapes; pick common fields
+    const email = userDto.email || userDto.username || userDto.name?.toLowerCase() || '';
+    const name = userDto.name || userDto.fullName || null;
+    const employeeId = userDto.employeeId || userDto.employee_id || userDto.empId || null;
+    const role = normalizeRole(userDto.role || userDto.userRole || userDto.roleName);
+
+    const userObj = createUserFromCredentials(email || `user@local`, role, name, userDto.team || null, employeeId);
+
+    setCurrentUser(userObj);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userObj));
+
+    // persist tokens if provided
+    if (tokens.accessToken) localStorage.setItem('accessToken', tokens.accessToken);
+    if (tokens.refreshToken) localStorage.setItem('refreshToken', tokens.refreshToken);
   };
 
   return (
@@ -190,6 +227,7 @@ export const UserProvider = ({ children }) => {
         register,
         logout,
         updateUser,
+          setAuthenticatedUser,
         registrationSuccess,
         setRegistrationSuccess,
         registrationError,

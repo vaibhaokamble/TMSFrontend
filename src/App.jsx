@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { UserProvider, useUser } from './contexts/UserContext';
-import { TeamProvider } from './contexts/TeamContext';
-import { EmployeesProvider } from './contexts/EmployeesContext';
-import { TaskProvider } from './contexts/TaskContext';
+import { useEffect, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
+import { EmployeesProvider } from './contexts/EmployeesContext';
+import { TaskProvider } from './contexts/TaskContext';
+import { TeamProvider } from './contexts/TeamContext';
+import { UserProvider, useUser } from './contexts/UserContext';
 import Dashboard from './pages/Dashboard';
-import Teams from './pages/Teams';
 import Employees from './pages/Employees';
-import TaskBoard from './pages/TaskBoard';
 import Login from './pages/Login';
 import Registration from './pages/Registration';
+import TaskBoard from './pages/TaskBoard';
+import Teams from './pages/Teams';
 
 import Analytics from './pages/Analytics';
 
@@ -23,7 +23,7 @@ function AppContent() {
   // Role-based access control: redirect employees from restricted tabs
   useEffect(() => {
     if (currentUser && currentUser.role === 'employee') {
-      if (activeTab === 'dashboard' || activeTab === 'employees' || activeTab === 'teams') {
+      if (activeTab === 'dashboard' || activeTab === 'employees') {
         setActiveTab('my-tasks');
       }
     }

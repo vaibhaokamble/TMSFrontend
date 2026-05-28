@@ -1,6 +1,11 @@
-import api from "./api";
+import api from './api';
 
-const API_PATH = "/api/employees";
+// Backend endpoints (as per API docs):
+// GET  /employees
+// PATCH /update/{employeeId}
+// DELETE /employees/{id}
+
+const API_PATH = '/employees';
 
 export const getAllEmployees = async () => {
   return await api.get(API_PATH);
@@ -10,11 +15,9 @@ export const getEmployeeById = async (id) => {
   return await api.get(`${API_PATH}/${id}`);
 };
 
-export const updateEmployee = async (id, employeeData) => {
-  return await api.put(
-    `${API_PATH}/${id}`,
-    employeeData
-  );
+// Update by employeeId (e.g. KDZ123) using PATCH /update/{employeeId}
+export const updateEmployee = async (employeeId, employeeData) => {
+  return await api.patch(`/update/${employeeId}`, employeeData);
 };
 
 export const deleteEmployee = async (id) => {

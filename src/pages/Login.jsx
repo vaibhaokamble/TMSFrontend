@@ -6,7 +6,7 @@ import { loginEmployee } from "../services/authService";
 import { validateEmployeeId } from '../utils/validation';
 
 const Login = ({ onSwitchToRegister }) => {
-  const { login, isLoading, loginError, setLoginError } = useUser();
+  const { login, isLoading, loginError, setLoginError, setAuthenticatedUser } = useUser();
   const [formData, setFormData] = useState({
     employeeId: '',
     password: '',
@@ -67,7 +67,26 @@ const Login = ({ onSwitchToRegister }) => {
       res.data.data.refreshToken
     );
 
-    alert("Login Successful");
+      // Attempt to extract user info from response and set authenticated user in context
+      const payload = res.data && res.data.data ? res.data.data : {};
+      let userDto = {};
+      // Common locations for user object
+      if (payload.user) userDto = payload.user;
+      else if (payload.employee) userDto = payload.employee;
+      else {
+        // fallback: try to use fields directly
+        userDto = {
+          email: payload.email || undefined,
+          name: payload.name || undefined,
+          employeeId: payload.employeeId || formData.employeeId.trim(),
+          role: formData.role,
+        };
+      }
+
+      setAuthenticatedUser(userDto, {
+        accessToken: payload.accessToken,
+        refreshToken: payload.refreshToken,
+      });
 
   })
   .catch((err) => {

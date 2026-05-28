@@ -1,13 +1,13 @@
-import { getTasks } from "../services/taskService";
-import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
-import { useTeam } from '../contexts/TeamContext';
+import { useEffect, useState } from 'react';
+import StatusBadge from '../components/StatusBadge';
 import { useTask } from '../contexts/TaskContext';
+import { useTeam } from '../contexts/TeamContext';
 import { useUser } from '../contexts/UserContext';
 import { useUserTeams } from '../hooks/useUserTeams';
-import StatusBadge from '../components/StatusBadge';
-import TaskModal from './TaskModal';
+import { getTasks } from "../services/taskService";
 import TaskForm from './TaskForm';
+import TaskModal from './TaskModal';
 
 const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
 
@@ -53,7 +53,6 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
 
   // Use selected team or first team as default
   const currentSelectedTeamId =
-    currentUser?.team ||
     contextSelectedTeamId ||
     (availableTeams.length > 0 ? availableTeams[0].id : null);
 
@@ -63,18 +62,15 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
 
   useEffect(() => {
 
-    if (
-      currentUser?.team &&
-      currentSelectedTeamId !== currentUser.team
-    ) {
+    if (currentSelectedTeamId && currentSelectedTeamId !== contextSelectedTeamId) {
 
-      setContextSelectedTeamId(currentUser.team);
+      setContextSelectedTeamId(currentSelectedTeamId);
 
     }
 
   }, [
     currentSelectedTeamId,
-    currentUser,
+    contextSelectedTeamId,
     setContextSelectedTeamId
   ]);
 
@@ -87,7 +83,7 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
           if (currentUser?.role === 'employee') {
 
             return (
-              t.teamId === currentUser?.team &&
+              t.teamId === currentSelectedTeamId &&
               (
                 t.assignedTo === currentUser?.name ||
                 t.createdBy === currentUser?.id
@@ -165,7 +161,7 @@ const TaskBoard = ({ view = 'my-tasks', searchQuery = '' }) => {
         <div className="min-w-0">
 
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white truncate">
-            🎯 {currentSelectedTeam?.name || currentUser?.team || 'Task Board'}
+            🎯 {currentSelectedTeam?.name || 'Task Board'}
           </h1>
 
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">

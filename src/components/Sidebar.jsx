@@ -1,5 +1,4 @@
-import React from 'react';
-import { LayoutDashboard, Users, CheckSquare, Target, ChevronRight, UserCheck, BarChart3 } from 'lucide-react';
+import { CheckSquare, ChevronRight, LayoutDashboard, UserCheck, Users } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
 
 const Sidebar = ({ activeTab, onTabChange, isMobileMenuOpen }) => {
@@ -9,7 +8,7 @@ const Sidebar = ({ activeTab, onTabChange, isMobileMenuOpen }) => {
   const allNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null, role: 'team-lead' },
     { id: 'employees', label: 'Employees', icon: UserCheck, badge: null, role: 'team-lead' },
-    { id: 'teams', label: 'Teams', icon: Users, badge: null, role: 'team-lead' },
+    { id: 'teams', label: 'My Team', icon: Users, badge: null, role: 'all' },
     { id: 'my-tasks', label: 'All Tasks', icon: CheckSquare, badge: null, role: 'all' },
   ];
 

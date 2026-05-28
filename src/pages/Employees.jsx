@@ -1,14 +1,14 @@
 import {
-  getAllEmployees,
-  deleteEmployee as deleteEmployeeApi,
-  updateEmployee as updateEmployeeApi,
+    deleteEmployee as deleteEmployeeApi,
+    getAllEmployees,
+    updateEmployee as updateEmployeeApi,
 } from "../services/employeeService";
 
-import React, { useState, useEffect } from "react";
-import { Edit2, Trash2, Users, X, Mail, User } from "lucide-react";
-import { useUser } from "../contexts/UserContext";
-import NotificationToast from "../components/NotificationToast";
+import { Edit2, Mail, Trash2, User, Users, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import ConfirmModal from "../components/ConfirmModal";
+import NotificationToast from "../components/NotificationToast";
+import { useUser } from "../contexts/UserContext";
 
 const Employees = ({ searchQuery = "" }) => {
   const { currentUser } = useUser();
@@ -33,6 +33,14 @@ const Employees = ({ searchQuery = "" }) => {
     useState(false);
   const isTeamLead = currentUser?.role === "team-lead";
 
+  const formatRole = (role) => {
+    if (!role) return '';
+    const r = String(role).toLowerCase();
+    if (r.includes('team')) return 'Team Lead';
+    if (r.includes('admin')) return 'Admin';
+    return 'Employee';
+  };
+
   // FETCH EMPLOYEES
   const fetchEmployees = async () => {
     try {
@@ -40,7 +48,19 @@ const Employees = ({ searchQuery = "" }) => {
 
       console.log(response.data);
 
-      setEmployees(response.data.data);
+      const payload = response.data && response.data.data ? response.data.data : response.data;
+
+      // Handle paginated response: Page<Employee> may be in payload.content
+      if (payload && Array.isArray(payload)) {
+        setEmployees(payload);
+      } else if (payload && Array.isArray(payload.content)) {
+        setEmployees(payload.content);
+      } else if (payload && Array.isArray(payload.items)) {
+        setEmployees(payload.items);
+      } else {
+        // fallback: try to use payload directly if it's an array-like
+        setEmployees(payload || []);
+      }
     } catch (error) {
       console.log(error);
     }
@@ -87,7 +107,7 @@ const Employees = ({ searchQuery = "" }) => {
       email: employee.email,
       designation: employee.designation || "",
       role:
-        employee.role === "TEAM_LEAD"
+        (employee.role === "TEAM_LEAD" || employee.role === 'TEAM-LEAD' || employee.role === 'team-lead')
           ? "team-lead"
           : "employee",
     });
@@ -100,7 +120,8 @@ const Employees = ({ searchQuery = "" }) => {
     e.preventDefault();
 
     try {
-      await updateEmployeeApi(editingEmployee.id, {
+      // Use employeeId (external id) for update endpoint per backend API
+      await updateEmployeeApi(editingEmployee.employeeId || editingEmployee.id, {
         name: employeeFormData.name,
         email: employeeFormData.email,
         designation: employeeFormData.designation,
@@ -229,7 +250,7 @@ const Employees = ({ searchQuery = "" }) => {
 
                   <div className="flex items-center gap-2">
                     <User size={14} />
-                    {employee.role}
+                    {formatRole(employee.role)}
                   </div>
                 </div>
               </div>
